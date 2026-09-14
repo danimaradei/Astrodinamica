@@ -37,7 +37,7 @@ print("\nPunto C")
 print(f"Velocidad en perihelio (vs_p): {vs_p:.3f} km/h")
 print(f"Velocidad en afelio (vs_a): {vs_a:.3f} km/h")
 
-# Punto C - Comparacion con planetas
+# Punto C - Comparacion con planetas -- se podian calcular como sqrt(pg_sol/a_i) ((no se quien es a_i))
 # Mercurio
 mercurio_p = 212328
 mercurio_a = 139896
