@@ -1,0 +1,42 @@
+Ya conseguí los datos y las librerías. Ahora escribo el script, lo corro y reviso los resultados.
+
+Resolví el ejercicio en `G3P2_E3.py`, y el gráfico quedó en `G3P2_E3_elevacion_sirio.png`. El script solo necesita `numpy`, `matplotlib` y `pyerfa`.
+
+## Resultados (hora local, UTC−3)
+
+**Intervalos con El > 0°**
+
+| Desde | Hasta |
+|---|---|
+| 18/10 00:00:00 (inicio de la ventana) | 18/10 12:39:12 |
+| 18/10 23:01:40 | 19/10 12:35:16 |
+| 19/10 22:57:45 | 20/10 00:00:00 (fin de la ventana) |
+
+El primero y el último están cortados por los límites de la ventana, así que no son intervalos completos.
+
+**Culminaciones**
+
+| Hora local | Elevación |
+|---|---|
+| 18/10 05:52:24 | 72.144° |
+| 19/10 05:48:28 | 72.144° |
+
+La segunda culminación ocurre 3 min 56 s antes que la primera, que es la diferencia entre un día solar y un día sidéreo. Eso confirma que la cadena de rotaciones está bien.
+
+## Cómo lo resolví
+
+1. **Sirio es una dirección fija en GCRF.** Con α y δ armé el vector unitario [cos δ cos α, cos δ sin α, sin δ] (Ec. 19).
+2. **Armé el eje de tiempo en UTC**, de 03:00 UTC del 18/10 a 03:00 UTC del 20/10, cada 1 minuto. A cada instante le asocié UT1 = UTC + ΔUT1 y TT = UTC + 37 s + 32.184 s.
+3. **Pasé la dirección de GCRF a ITRF** con la cadena de la Ec. 15:
+   - **[PN]ᵀ:** lo da `erfa.c2i06a`, que usa TT.
+   - **ERA:** lo calculé con la Ec. 16, que usa UT1.
+   - **[W]ᵀ:** lo armé con xp e yp.
+4. **Pasé de ITRF a SEZ de Buenos Aires** con la Ec. 20, y calculé la elevación con la Ec. 21.
+5. **Intervalos:** busqué los cambios de signo de El en la grilla de 1 minuto y refiné cada cruce por bisección.
+6. **Culminaciones:** busqué los máximos locales de El y refiné donde la derivada se anula.
+
+## Datos del IERS
+
+No pude abrir la edición del Bulletin A que pide la guía (la del 1/10/2026). Usé los ΔUT1 que da la guía para el 18, 19 y 20. Para el 21/10 y para xp e yp usé el Bulletin A No. 042 del 15/10/2026, que fue el que pude descargar. Probé cambiar esos datos y los tiempos se mueven menos de 0.01 s y la elevación menos de 0.0001°, así que los resultados no cambian. Si tenés los valores exactos de la edición 040, reemplazalos en las listas `EOP_*` al principio del script.
+
+Verifiqué que mi ERA y mi [W] coinciden con `erfa.era00` y `erfa.pom00`, y que la elevación coincide con la que sale usando `erfa.c2tcio`.
