@@ -1,50 +1,38 @@
-"""
-Guia III - Parte 2 - Ejercicio 3: Elevacion de Sirio desde Buenos Aires.
+# Actividad 3B: Guía 3 - Parte 2 - Ejercicio 3
+# Maradei Daniela - 62020
 
-Requisitos: numpy, matplotlib, pyerfa  ->  pip install numpy matplotlib pyerfa
-"""
 from datetime import datetime, timedelta
-
 import numpy as np
 import erfa
 import matplotlib.pyplot as plt
 
-# ----------------------------------------------------------------------------
-# 1. DATOS
-# ----------------------------------------------------------------------------
+# DATOS
 # Sirio (J2000.0), direccion fija en GCRF
-ALPHA = np.radians(15.0 * (6 + 45 / 60 + 8.9173 / 3600))      # 06h 45m 8.9173s
-DELTA = -np.radians(16 + 42 / 60 + 58.02 / 3600)              # -16d 42' 58.02"
+ALPHA = np.radians(15.0 * (6 + 45 / 60 + 8.9173 / 3600)) # 06h 45m 8.9173s
+DELTA = -np.radians(16 + 42 / 60 + 58.02 / 3600) # -16° 42' 58.02"
 
-# Observador: Buenos Aires (latitud geodesica, longitud Este positiva)
-PHI = np.radians(-34.60)
-LAM = np.radians(-58.38)
+PHI = np.radians(-34.60) # phi gd: latitud geodesica - Buenos Aires
+LAM = np.radians(-58.38) # lambda: longitud - Buenos Aires
 
-D_AT = 37.0                  # TAI - UTC [s] (Bulletin C)
-TT_MENOS_TAI = 32.184        # [s]
+D_AT = 37.0 # TAI - UTC (s)
+TT_MENOS_TAI = 32.184 # (s)
 ARCSEC = np.pi / (180 * 3600)
 
 # EOP a las 00:00 UTC del 18, 19, 20 y 21 de octubre de 2026
-# Segundos desde 2026-10-18 00:00:00 UTC
+# Segundos desde el 2026-10-18 00:00:00 UTC
 EOP_T = np.array([0.0, 86400.0, 172800.0, 259200.0])
-# dUT1 = UT1 - UTC [s]. 18, 19 y 20: Bulletin A del 1/10/2026 (dado en la guia).
-# 21: Bulletin A No. 042 del 15/10/2026 (la guia no lo da).
 EOP_DUT1 = np.array([-0.03716, -0.03804, -0.03911, -0.04106])
-# xp, yp ["]: Bulletin A No. 042 del 15/10/2026 (predicciones)
 EOP_XP = np.array([0.1543, 0.1531, 0.1519, 0.1508])
 EOP_YP = np.array([0.3205, 0.3204, 0.3204, 0.3204])
 
-# Instante de referencia: 2026-10-18 00:00:00 UTC
 JD1 = 367 * 2026 - int(7 * (2026 + int((10 + 9) / 12)) / 4) + int(275 * 10 / 9) + 18 + 1721013.5  # Alg. 14
-# Ventana pedida: 18/10 00:00 local (UTC-3) a 20/10 00:00 local
-T_INI = 3 * 3600.0                   # 03:00 UTC del 18/10
-T_FIN = 2 * 86400.0 + 3 * 3600.0     # 03:00 UTC del 20/10
-PASO = 60.0                          # [s]
+# Ventana: 18/10 00:00 local (UTC-3) a 20/10 00:00 local
+T_INI = 3 * 3600.0 # 03:00 UTC del 18/10
+T_FIN = 2 * 86400.0 + 3 * 3600.0 # 03:00 UTC del 20/10
+PASO = 60.0 # (s)
 
 
-# ----------------------------------------------------------------------------
-# 2. MATRICES ELEMENTALES (convencion de Vallado, Guia Ec. 1-3)
-# ----------------------------------------------------------------------------
+# MATRICES DE ROTACION
 def rot1(a):
     a = np.atleast_1d(a)
     c, s = np.cos(a), np.sin(a)
@@ -54,7 +42,6 @@ def rot1(a):
     m[..., 2, 1], m[..., 2, 2] = -s, c
     return m
 
-
 def rot2(a):
     a = np.atleast_1d(a)
     c, s = np.cos(a), np.sin(a)
@@ -63,7 +50,6 @@ def rot2(a):
     m[..., 1, 1] = 1
     m[..., 2, 0], m[..., 2, 2] = s, c
     return m
-
 
 def rot3(a):
     a = np.atleast_1d(a)
@@ -75,23 +61,19 @@ def rot3(a):
     return m
 
 
-# ----------------------------------------------------------------------------
-# 3. ERA (Guia Ec. 16), con la fecha juliana en dos partes
-# ----------------------------------------------------------------------------
+# ERA
 def era(jd1, jd2):
     f = np.mod(jd1, 1.0) + np.mod(jd2, 1.0)
     t = (jd1 - 2451545.0) + jd2
     return 2 * np.pi * np.mod(f + 0.7790572732640 + 0.00273781191135448 * t, 1.0)
 
 
-# ----------------------------------------------------------------------------
-# 4. CADENA GCRF -> ITRF -> SEZ
-# ----------------------------------------------------------------------------
+# TRANSFORMACIONES
+# Ec 19
 U_GCRF = np.array([np.cos(DELTA) * np.cos(ALPHA),
                    np.cos(DELTA) * np.sin(ALPHA),
-                   np.sin(DELTA)])                                 # Ec. 19
-M_LOCAL = (rot2(np.pi / 2 - PHI) @ rot3(LAM))[0]                   # Ec. 20 (constante)
-
+                   np.sin(DELTA)])    
+M_LOCAL = (rot2(np.pi / 2 - PHI) @ rot3(LAM))[0] # Ec 20
 
 def elevacion(t):
     """Elevacion [rad] de Sirio para t = segundos UTC desde 2026-10-18 00:00."""
@@ -100,24 +82,22 @@ def elevacion(t):
     xp = np.interp(t, EOP_T, EOP_XP) * ARCSEC
     yp = np.interp(t, EOP_T, EOP_YP) * ARCSEC
 
-    jd2_ut1 = t / 86400.0 + dut1 / 86400.0                          # JD_UT1 = JD1 + jd2
+    jd2_ut1 = t / 86400.0 + dut1 / 86400.0 # JD_UT1 = JD1 + jd2
     tt1 = 2451545.0
-    tt2 = (JD1 - 2451545.0) + t / 86400.0 + (D_AT + TT_MENOS_TAI) / 86400.0   # JD_TT = tt1 + tt2
+    tt2 = (JD1 - 2451545.0) + t / 86400.0 + (D_AT + TT_MENOS_TAI) / 86400.0 # JD_TT = tt1 + tt2
 
-    pn_t = erfa.c2i06a(tt1, tt2)                                    # = [PN]^T (GCRS -> CIRS)
-    r_t = rot3(era(JD1, jd2_ut1))                                   # [R]^T = ROT3(ERA)
-    w_t = rot1(-yp) @ rot2(-xp)                                     # [W]^T
+    pn_t = erfa.c2i06a(tt1, tt2) # = [PN]^T (GCRS -> CIRS)
+    r_t = rot3(era(JD1, jd2_ut1)) # [R]^T = ROT3(ERA)
+    w_t = rot1(-yp) @ rot2(-xp) # [W]^T
 
-    u = np.einsum('nij,j->ni', pn_t, U_GCRF)                        # CIRS
-    u = np.einsum('nij,nj->ni', r_t, u)                             # TIRS
-    u = np.einsum('nij,nj->ni', w_t, u)                             # ITRF  (Ec. 15)
-    s, e, z = (M_LOCAL @ u.T)                                       # SEZ   (Ec. 20)
-    return np.arctan2(z, np.hypot(s, e))                            # El    (Ec. 21)
+    u = np.einsum('nij,j->ni', pn_t, U_GCRF) # CIRS
+    u = np.einsum('nij,nj->ni', r_t, u) # TIRS
+    u = np.einsum('nij,nj->ni', w_t, u) # ITRF (Ec. 15)
+    s, e, z = (M_LOCAL @ u.T) # SEZ (Ec. 20)
+    return np.arctan2(z, np.hypot(s, e)) # El (Ec. 21)
 
 
-# ----------------------------------------------------------------------------
-# 5. BUSQUEDA DE CRUCES DEL HORIZONTE Y CULMINACIONES
-# ----------------------------------------------------------------------------
+# CRUCES DEL HORIZONTE Y CULMINACIONES
 def biseccion(f, a, b, it=60):
     fa = f(a)
     for _ in range(it):
@@ -129,17 +109,15 @@ def biseccion(f, a, b, it=60):
             a, fa = m, fm
     return 0.5 * (a + b)
 
-
 def derivada(t, h=1.0):
     return float((elevacion(t + h) - elevacion(t - h))[0] / (2 * h))
-
 
 t = np.arange(T_INI, T_FIN + 0.5 * PASO, PASO)
 el = elevacion(t)
 sobre = el > 0
 
-# Cruces del horizonte (refinados)
-cruces = []  # (tiempo, 'sube' | 'baja')
+# Cruces del horizonte
+cruces = []
 for i in range(len(t) - 1):
     if sobre[i] != sobre[i + 1]:
         tc = biseccion(lambda x: float(elevacion(x)[0]), t[i], t[i + 1])
@@ -165,16 +143,12 @@ for i in range(1, len(t) - 1):
         culminaciones.append((tm, float(np.degrees(elevacion(tm)[0]))))
 
 
-# ----------------------------------------------------------------------------
-# 6. RESULTADOS (hora local UTC-3)
-# ----------------------------------------------------------------------------
+# RESULTADOS (hora local UTC-3)
 def local(ts):
     return datetime(2026, 10, 18) + timedelta(seconds=float(ts) - 3 * 3600)
 
-
 def fmt(ts):
     return local(ts).strftime('%d/%m/%Y %H:%M:%S')
-
 
 print('Intervalos con El > 0 (hora local, UTC-3):')
 for a, b in intervalos:
@@ -185,10 +159,9 @@ print('Culminaciones:')
 for tm, em in culminaciones:
     print(f'  {fmt(tm)}   El = {em:.3f} deg')
 
-# ----------------------------------------------------------------------------
-# 7. GRAFICO
-# ----------------------------------------------------------------------------
-x = (t - 3 * 3600.0) / 3600.0          # horas locales desde el 18/10 00:00
+
+# GRAFICO
+x = (t - 3 * 3600.0) / 3600.0 # horas locales desde el 18/10 00:00
 el_deg = np.degrees(el)
 
 fig, ax = plt.subplots(figsize=(11, 4.5))
