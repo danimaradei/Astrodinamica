@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 # DATOS
 # Sirio (J2000.0), direccion fija en GCRF
-ALPHA = np.radians(15.0 * (6 + 45 / 60 + 8.9173 / 3600)) # 06h 45m 8.9173s
-DELTA = -np.radians(16 + 42 / 60 + 58.02 / 3600) # -16° 42' 58.02"
+ALPHA = np.radians(15.0 * (6 + 45 / 60 + 8.9173 / 3600)) # 06h 45m 8,9173s
+DELTA = -np.radians(16 + 42 / 60 + 58.02 / 3600) # -16° 42' 58,02"
 
 PHI = np.radians(-34.60) # phi gd: latitud geodesica - Buenos Aires
 LAM = np.radians(-58.38) # lambda: longitud - Buenos Aires
@@ -25,7 +25,7 @@ EOP_DUT1 = np.array([-0.03716, -0.03804, -0.03911, -0.04106])
 EOP_XP = np.array([0.1543, 0.1531, 0.1519, 0.1508])
 EOP_YP = np.array([0.3205, 0.3204, 0.3204, 0.3204])
 
-JD1 = 367 * 2026 - int(7 * (2026 + int((10 + 9) / 12)) / 4) + int(275 * 10 / 9) + 18 + 1721013.5  # Alg. 14
+JD1 = 367 * 2026 - int(7 * (2026 + int((10 + 9) / 12)) / 4) + int(275 * 10 / 9) + 18 + 1721013.5  # fecha juliana 00:00 UTC 18/10 (algoritmo 14 Vallado)
 # Ventana: 18/10 00:00 local (UTC-3) a 20/10 00:00 local
 T_INI = 3 * 3600.0 # 03:00 UTC del 18/10
 T_FIN = 2 * 86400.0 + 3 * 3600.0 # 03:00 UTC del 20/10
@@ -61,7 +61,7 @@ def rot3(a):
     return m
 
 
-# ERA
+# ERA - Ec 16 de la guia
 def era(jd1, jd2):
     f = np.mod(jd1, 1.0) + np.mod(jd2, 1.0)
     t = (jd1 - 2451545.0) + jd2
@@ -78,7 +78,7 @@ M_LOCAL = (rot2(np.pi / 2 - PHI) @ rot3(LAM))[0] # Ec 20
 def elevacion(t):
     """Elevacion [rad] de Sirio para t = segundos UTC desde 2026-10-18 00:00."""
     t = np.atleast_1d(np.asarray(t, dtype=float))
-    dut1 = np.interp(t, EOP_T, EOP_DUT1)
+    dut1 = np.interp(t, EOP_T, EOP_DUT1) # Ec 10
     xp = np.interp(t, EOP_T, EOP_XP) * ARCSEC
     yp = np.interp(t, EOP_T, EOP_YP) * ARCSEC
 
