@@ -40,3 +40,98 @@ La segunda culminación ocurre 3 min 56 s antes que la primera, que es la difere
 No pude abrir la edición del Bulletin A que pide la guía (la del 1/10/2026). Usé los ΔUT1 que da la guía para el 18, 19 y 20. Para el 21/10 y para xp e yp usé el Bulletin A No. 042 del 15/10/2026, que fue el que pude descargar. Probé cambiar esos datos y los tiempos se mueven menos de 0.01 s y la elevación menos de 0.0001°, así que los resultados no cambian. Si tenés los valores exactos de la edición 040, reemplazalos en las listas `EOP_*` al principio del script.
 
 Verifiqué que mi ERA y mi [W] coinciden con `erfa.era00` y `erfa.pom00`, y que la elevación coincide con la que sale usando `erfa.c2tcio`.
+
+----------------------------------------------------------------------------
+
+## Primero, lo que NO pude hacer
+
+**1. No pude descargar la edición del Bulletin A que pide la guía** (1 de octubre de 2026, Vol. XXXIX, No. 040).
+- **Qué pasó:** el sitio del IERS me dejó abrir la lista de ediciones y la "última versión" (No. 042, del 15/10/2026). Pero rechazó el enlace directo al archivo de la edición 040.
+- **Qué usé en su lugar (están en la sección 1 del script):**
+
+| Dato | Fuente que usé | ¿Coincide con la guía? |
+|---|---|---|
+| ΔUT1 del 18, 19 y 20/10 | Tabla de la guía (viene de la edición 040) | Sí |
+| ΔUT1 del 21/10 (−0.04106) | Bulletin A No. 042 | **No**: la guía no da este valor |
+| xp, yp del 18 al 21/10 | Bulletin A No. 042 | **No**: la guía no da estos valores |
+
+- **Qué incumple:** la guía pide usar una sola edición de EOP, y yo mezclé la tabla de la guía (edición 040) con la 042. Tampoco quería usar la "latest version", pero fue lo único accesible.
+- **Efecto en los resultados:** casi nulo. Probé poniendo xp = yp = 0 y también usando todo el ΔUT1 de la 042. Los tiempos cambian menos de 0.01 s y la elevación menos de 0.0001°. Los resultados que reportás (segundos y 0.001°) no cambian.
+- **Qué hacer antes de entregar:**
+  1. Entrá a `datacenter.iers.org/bulletins.php`, abrí Bulletin A → *available versions* → Vol. XXXIX No. 040 (2026-10-01).
+  2. En la tabla PREDICTIONS copiá x, y y UT1−UTC del 18, 19, 20 y 21/10.
+  3. En el script, en la sección "1. DATOS", reemplazá estas tres líneas (y los comentarios que mencionan la 042):
+
+```python
+EOP_DUT1 = np.array([-0.03716, -0.03804, -0.03911, <UT1-UTC del 21/10, edición 040>])
+EOP_XP   = np.array([<x 18/10>, <x 19/10>, <x 20/10>, <x 21/10>])   # segundos de arco
+EOP_YP   = np.array([<y 18/10>, <y 19/10>, <y 20/10>, <y 21/10>])   # segundos de arco
+```
+
+  4. Volvé a correr y revisá que los tiempos coincidan hasta el segundo.
+  5. En el informe aclará qué edición usaste.
+
+**2. No descargué el Bulletin C 72.** El ΔAT = 37 s lo tomé de la guía, que lo da como dato. El Bulletin A 042 que sí vi también dice TAI−UTC = 37 s y que no habrá leap second a fin de 2026.
+
+**3. Cosas que dejé afuera porque pediste solo la consigna:**
+- Los "Controles y discusión" del ejercicio no están impresos en el script: norma de la dirección igual a 1 y u_Z > 0 ⇒ El > 0.
+- La extensión opcional de los intervalos nocturnos.
+- Los intervalos 1 y 3 quedan cortados por la ventana. No calculé la salida y la puesta reales fuera de ella.
+
+El control del día sidéreo sí se cumple (3 min 56 s de diferencia entre las dos culminaciones). La verificación contra `erfa` la hice aparte, no está en el script.
+
+---
+
+## Explicación de cada bloque del código
+
+### Bloque 1: Datos
+- **Sirio:** α viene en horas, minutos y segundos. Se pasa a horas decimales (6 + 45/60 + 8.9173/3600), se multiplica por 15 para tener grados (24 h = 360°) y se pasa a radianes. En δ, el signo negativo afecta a toda la expresión −(16° + 42′ + 58.02″).
+- **Observador:** la latitud sur y la longitud oeste van negativas, en radianes.
+- **Constantes de tiempo:** `D_AT = 37` y `TT_MENOS_TAI = 32.184` dan TT = UTC + 69.184 s. `ARCSEC` convierte segundos de arco a radianes (Guía, Ec. 18).
+- **Tablas EOP:** el eje de tiempo son segundos desde el 18/10 a las 00:00 UTC. Los valores 0, 86400, 172800 y 259200 son las 00:00 UTC del 18, 19, 20 y 21. Cada lista tiene un valor por día. Estas son las líneas que tenés que reemplazar.
+- **`JD1`:** es la fecha juliana de las 00:00 UTC del 18/10, calculada con el Algoritmo 14 de Vallado. Da 2461331.5.
+- **`T_INI` y `T_FIN`:** 00:00 locales del 18/10 son las 03:00 UTC, y las 00:00 locales del 20/10 son las 03:00 UTC del 20/10. `PASO = 60` s es el paso de un minuto.
+
+### Bloque 2: Matrices elementales
+`rot1`, `rot2` y `rot3` son las matrices de las Ecs. 1 a 3 de la guía. Son matrices de cambio de componentes, no giran el vector.
+
+Están escritas para recibir **muchos ángulos a la vez**: devuelven una pila de N matrices de 3×3 (una por instante). `np.atleast_1d` convierte un ángulo suelto en lista. `c` y `s` son el coseno y el seno, y después se llena cada posición de la matriz. Así se procesan los 2881 instantes sin hacer un bucle.
+
+### Bloque 3: `era()`
+Calcula el ángulo de rotación terrestre con la Ec. 16. Separa la fecha juliana en dos partes (`jd1` entera y `jd2` fraccionaria) para no perder precisión: una JD ronda los 2.4 millones de días y un `float` de 64 bits tiene unos 16 dígitos. Si se multiplicara la JD entera por 1.00273781…, la fracción quedaría con ruido.
+
+- `f` es la suma de las partes fraccionarias.
+- `t` son los días desde J2000.
+- Se devuelve el resultado módulo 2π.
+
+Es matemáticamente igual a la Ec. 16: el "1" de 1.0027378… solo aporta vueltas enteras y la parte fraccionaria de `t`, que ya está dentro de `f`.
+
+### Bloque 4: La cadena de transformaciones
+- **`U_GCRF`** es el vector unitario de Sirio (Ec. 19). **`M_LOCAL`** es ROT2(π/2 − φ)·ROT3(λ) (Ec. 20). Es constante, porque Buenos Aires está fija en ITRF, y el `[0]` extrae la matriz única de la pila.
+- **`elevacion(t)`** es el corazón del script. Para cada instante hace esto:
+  1. **Interpola los EOP linealmente** (Ec. 10): ΔUT1, xp e yp, y pasa xp e yp a radianes.
+  2. **Arma los dos relojes.** `jd2_ut1` es la fracción de día en UT1, que se usa para ERA. `tt1` y `tt2` son la fecha en TT partida en dos, que se usa para precesión y nutación.
+  3. **`pn_t = erfa.c2i06a(...)`** da la matriz GCRS → CIRS, que es [PN]ᵀ. Incluye sesgo de marco, precesión (IAU 2006) y nutación (IAU 2000A).
+  4. **`r_t = rot3(era(...))`** es [R]ᵀ, que pasa de CIRS a TIRS.
+  5. **`w_t = rot1(−yp)·rot2(−xp)`** es [W]ᵀ, que pasa de TIRS a ITRF.
+  6. **Se aplican en este orden:** primero [PN]ᵀ, después [R]ᵀ y al final [W]ᵀ (Ec. 15). Es el orden inverso de GCRF r = [PN][R][W] ITRF r. `'nij,j->ni'` multiplica la matriz de cada instante por el vector fijo, y `'nij,nj->ni'` por el vector de cada instante.
+  7. **Pasa a SEZ** con `M_LOCAL` y calcula la elevación con `arctan2(z, hypot(s, e))` (Ec. 21).
+
+La cadena completa es: GCRF → [PNᵀ] → CIRS → [Rᵀ] → TIRS → [Wᵀ] → ITRF → [local] → SEZ.
+
+### Bloque 5: Búsqueda de cruces y culminaciones
+- **`biseccion(f, a, b)`** busca dónde una función vale cero partiendo el intervalo a la mitad. En cada vuelta se queda con la mitad donde cambia el signo. Con 60 vueltas, la precisión es mucho más fina de lo que hace falta.
+- **`derivada(t)`** estima la pendiente de El con una diferencia central de ±1 s.
+- **La grilla:** `t` tiene un punto por minuto y `el` es la elevación en cada uno. `sobre` marca con `True` los instantes con El > 0.
+- **Cruces:** si `sobre[i]` y `sobre[i+1]` difieren, el horizonte se cruzó dentro de ese minuto. Se refina con bisección buscando El = 0. Si el siguiente punto está arriba, el cruce es una salida (`'sube'`); si no, una puesta (`'baja'`).
+- **Intervalos:** se recorren los cruces. Un `'sube'` fija el inicio y un `'baja'` lo cierra. Si Sirio ya está arriba en el primer instante, el inicio es `t[0]`. Si sigue arriba al final, el fin es `t[-1]`. Así quedan marcados los intervalos cortados.
+- **Culminaciones:** un máximo local en la grilla es un punto más alto que el anterior y no menor que el siguiente, con El > 0. En el máximo la curva es casi plana, así que la grilla solo lo ubica con ±1 min. Por eso se refina buscando el cero de la derivada entre `t[i−1]` y `t[i+1]`, y después se calcula la elevación en ese instante.
+
+### Bloque 6: Resultados
+`local(ts)` pasa de "segundos desde el 18/10 00:00 UTC" a fecha y hora locales, restando 3 horas. `fmt` le da formato. Las impresiones agregan "(inicio de la ventana)" o "(fin de la ventana)" cuando un intervalo toca el borde, es decir, cuando `a == t[0]` o `b == t[-1]`.
+
+### Bloque 7: Gráfico
+- **Eje x:** horas locales desde el 18/10 a las 00:00, es decir `(t − 3 h)/3600`.
+- **Dibujo:** la curva de El en grados, una línea en 0° (el horizonte) y el área sombreada donde El > 0.
+- **Culminaciones:** puntos rojos con su hora y elevación.
+- **Ejes:** marcas cada 6 horas con fecha y hora, y se guarda como PNG.
